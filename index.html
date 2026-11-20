@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guitar Practice Hub</title>
+<style>
+:root{--bg:#f6f3ee;--fg:#1d1b18;--mut:#6f695f;--card:#fff;--acc:#d9531e;--ok:#2b8a4b;--line:#ded8cc;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171513;--fg:#f1ece4;--mut:#a39c90;--card:#221f1c;--acc:#ff7a45;--ok:#5fcf86;--line:#38332d}}
+:root[data-theme="dark"]{--bg:#171513;--fg:#f1ece4;--mut:#a39c90;--card:#221f1c;--acc:#ff7a45;--ok:#5fcf86;--line:#38332d}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+[hidden]{display:none!important}
+.wrap{max-width:640px;margin:0 auto;padding:24px 20px 48px}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:20px;margin:0}
+.mut{color:var(--mut)}.small{font-size:13px}
+.top{display:flex;gap:12px;margin:16px 0}
+.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat b{display:block;font-size:30px;color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:8px 0 20px}
+.card{font:inherit;color:inherit;text-align:left;background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.card.sel{border-color:var(--acc)}
+.card .ic{font-size:28px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+select,textarea{font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);max-width:100%}
+textarea{width:100%;box-sizing:border-box;height:90px}
+.bar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:10px 0;flex-wrap:wrap}
+.btn{display:inline-block;font:inherit;font-weight:600;padding:12px 18px;border-radius:12px;background:var(--acc);color:#fff;text-decoration:none;border:0;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+svg{width:100%;height:auto;display:block}
+.ln{fill:none;stroke:var(--acc);stroke-width:3;stroke-linejoin:round}
+.dot{fill:var(--card);stroke:var(--acc);stroke-width:3}.dot.best{fill:var(--ok);stroke:var(--ok)}
+.ax{stroke:var(--line)}.tx{fill:var(--mut);font-size:12px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:14px}
+details{margin-top:24px}summary{cursor:pointer;color:var(--mut)}
+</style></head>
+<body><main class="wrap">
+<h1>Guitar practice hub</h1>
+<p class="mut">Pick an exercise and watch your progress over time.</p>
+<div class="top">
+ <div class="stat"><b id="streak">0</b><span class="mut small">day streak</span></div>
+ <div class="stat"><b id="week">0</b><span class="mut small">sessions this week</span></div>
+</div>
+<div class="grid" id="cards"></div>
+
+<section class="panel">
+ <h2 id="dt"></h2><div class="mut small" id="dd"></div>
+ <div class="bar"><select id="filt" aria-label="Filter"></select><a class="btn" id="open" href="#">Start exercise</a></div>
+ <div id="chart"></div>
+ <div class="chips" id="stats"></div>
+ <div class="small mut" id="pt"></div>
+</section>
+
+<details>
+ <summary>Backup and move progress between devices</summary>
+ <p class="small mut">Progress is saved in this browser only. Export, then paste the text into Import on your other device.</p>
+ <textarea id="box" placeholder="Export text appears here, or paste it here to import"></textarea>
+ <div class="bar"><button class="btn ghost" id="exp">Export</button><button class="btn ghost" id="imp">Import</button></div>
+ <div class="small mut" id="bmsg"></div>
+</details>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// To add a new exercise: drop its .html file in the repo and add a line here.
+// high:true = bigger score is better; high:false = smaller is better.
+const MODULES=[
+ {id:"chord-changes",name:"Chord changes",icon:"🎸",file:"chord-changes.html",unit:"changes in 60s",high:true,desc:"Switch between two chords for one minute"},
+ {id:"fretboard-finder",name:"Fretboard finder",icon:"🎯",file:"fretboard-finder.html",unit:"s average per note",high:false,desc:"Find the called note on the called string (lower is better)"}
+];
+let sel=MODULES[0].id,filt="all",cur=[];
+function log(){try{const L=JSON.parse(localStorage.getItem("gph:log")||"[]");return(Array.isArray(L)?L:[]).sort((a,b)=>a.t-b.t)}catch(e){return[]}}
+const day=t=>new Date(t).toLocaleDateString("en-CA");
+function streak(L){const d=new Set(L.map(e=>day(e.t)));let n=0,c=new Date();if(!d.has(day(c)))c.setDate(c.getDate()-1);while(d.has(day(c))){n++;c.setDate(c.getDate()-1)}return n}
+function ago(t){const k=Math.round((new Date(day(Date.now()))-new Date(day(t)))/864e5);return k<1?"today":k===1?"yesterday":k+" days ago"}
+const fd=t=>new Date(t).toLocaleDateString(undefined,{month:"short",day:"numeric"});
+const r1=v=>Math.round(v*100)/100;
+function defFilt(){const a=log().filter(e=>e.m===sel);filt=a.length&&a[a.length-1].l||"all"}
+
+function render(){
+ const L=log();
+ $("streak").textContent=streak(L);
+ $("week").textContent=L.filter(e=>e.t>Date.now()-6048e5).length;
+ $("cards").innerHTML=MODULES.map(m=>{
+  const E=L.filter(e=>e.m===m.id);
+  const b=E.length?(m.high?Math.max:Math.min)(...E.map(e=>e.s)):null;
+  return `<button class="card${m.id===sel?" sel":""}" data-id="${m.id}"><span class="ic">${m.icon}</span><b>${m.name}</b><span class="mut small">${E.length?"Best "+r1(b)+" · "+ago(E[E.length-1].t):"Not tried yet"}</span></button>`}).join("");
+ const m=MODULES.find(x=>x.id===sel),all=L.filter(e=>e.m===sel);
+ $("dt").textContent=m.name;$("dd").textContent=m.desc;$("open").href=m.file;
+ const labels=[...new Set(all.map(e=>e.l).filter(Boolean))];
+ if(filt!=="all"&&!labels.includes(filt))filt="all";
+ const f=$("filt");f.hidden=!labels.length;f.innerHTML="";
+ f.add(new Option("All","all"));labels.forEach(l=>f.add(new Option(l,l)));f.value=filt;
+ chart(filt==="all"?all:all.filter(e=>e.l===filt),m);
+}
+
+function chart(E,m){
+ cur=E;
+ if(!E.length){$("chart").innerHTML='<p class="mut">No sessions yet. Finish a round and your results will show up here.</p>';$("stats").innerHTML="";$("pt").textContent="";return}
+ const W=600,H=220,pl=44,pr=14,pt=14,pb=30,v=E.map(e=>e.s);
+ let lo=Math.min(...v),hi=Math.max(...v);
+ const best=m.high?hi:lo;
+ if(lo===hi){lo-=1;hi+=1}
+ const pad=(hi-lo)*.15;lo-=pad;hi+=pad;
+ const n=E.length,X=i=>n===1?W/2:pl+i*(W-pl-pr)/(n-1),Y=s=>pt+(H-pt-pb)*(1-(s-lo)/(hi-lo));
+ let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Progress chart"><line class="ax" x1="${pl}" y1="${H-pb}" x2="${W-pr}" y2="${H-pb}"/>`;
+ [Math.min(...v),Math.max(...v)].forEach((val,k,a)=>{if(k&&val===a[0])return;s+=`<text class="tx" x="${pl-6}" y="${Y(val)+4}" text-anchor="end">${r1(val)}</text>`});
+ s+=`<polyline class="ln" points="${E.map((e,i)=>X(i)+","+Y(e.s)).join(" ")}"/>`;
+ E.forEach((e,i)=>{s+=`<circle class="dot${e.s===best?" best":""}" cx="${X(i)}" cy="${Y(e.s)}" r="${e.s===best?7:5}"/><circle data-i="${i}" cx="${X(i)}" cy="${Y(e.s)}" r="16" fill="transparent"/>`});
+ s+=`<text class="tx" x="${n===1?W/2:pl}" y="${H-8}" text-anchor="${n===1?"middle":"start"}">${fd(E[0].t)}</text>`;
+ if(n>1)s+=`<text class="tx" x="${W-pr}" y="${H-8}" text-anchor="end">${fd(E[n-1].t)}</text>`;
+ $("chart").innerHTML=s+"</svg>";
+ const last5=v.slice(-5);
+ $("stats").innerHTML=[["Best",r1(best)],["Last",r1(v[n-1])],["Avg last 5",r1(last5.reduce((a,b)=>a+b,0)/last5.length)],["Sessions",n]].map(x=>`<span class="chip">${x[0]}: <b>${x[1]}</b></span>`).join("");
+ show(n-1);
+}
+function show(i){const e=cur[i],m=MODULES.find(x=>x.id===sel);$("pt").textContent=fd(e.t)+(e.l?" · "+e.l:"")+" · "+r1(e.s)+" "+m.unit}
+
+$("cards").onclick=ev=>{const b=ev.target.closest(".card");if(!b)return;sel=b.dataset.id;defFilt();render()};
+$("filt").onchange=e=>{filt=e.target.value;render()};
+$("chart").onclick=ev=>{const i=ev.target.getAttribute&&ev.target.getAttribute("data-i");if(i!==null&&i!==undefined)show(+i)};
+$("exp").onclick=()=>{$("box").value=JSON.stringify(log());$("box").select();$("bmsg").textContent="Copy this text and keep it somewhere safe."};
+$("imp").onclick=()=>{
+ try{
+  const inc=JSON.parse($("box").value);if(!Array.isArray(inc))throw 0;
+  const L=log(),seen=new Set(L.map(e=>e.m+"|"+e.t));let add=0;
+  inc.forEach(e=>{if(e&&typeof e.m==="string"&&typeof e.t==="number"&&typeof e.s==="number"&&!seen.has(e.m+"|"+e.t)){L.push({m:e.m,t:e.t,s:e.s,l:e.l});seen.add(e.m+"|"+e.t);add++}});
+  localStorage.setItem("gph:log",JSON.stringify(L));
+  $("bmsg").textContent="Imported "+add+" new sessions.";defFilt();render();
+ }catch(e){$("bmsg").textContent="That text doesn’t look like a valid export."}
+};
+defFilt();render();
+</script></body></html>

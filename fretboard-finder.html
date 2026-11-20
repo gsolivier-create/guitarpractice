@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Fretboard finder</title>
+<style>
+:root {
+  --bg: #E3EBE6;
+  --panel: #F2F6F3;
+  --ink: #14282A;
+  --muted: #55696A;
+  --accent: #C23B2A;
+  --accent-ink: #FFFFFF;
+  --hit: #1F6F4A;
+  --line: #B9C9C4;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1D20;
+    --panel: #17292D;
+    --ink: #E4EEEA;
+    --muted: #8CA3A3;
+    --accent: #F0664F;
+    --accent-ink: #1A0B08;
+    --hit: #5CCB93;
+    --line: #2B4247;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1D20;
+  --panel: #17292D;
+  --ink: #E4EEEA;
+  --muted: #8CA3A3;
+  --accent: #F0664F;
+  --accent-ink: #1A0B08;
+  --hit: #5CCB93;
+  --line: #2B4247;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 18px/1.45 var(--sans);
+}
+[hidden] { display: none !important; }
+main { max-width: 720px; margin: 0 auto; padding: 28px 20px 48px; }
+
+h1 { font: 600 42px/1.1 var(--serif); letter-spacing: -0.01em; margin: 8px 0 12px; }
+.lead { color: var(--muted); max-width: 52ch; margin: 0; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+  margin: 24px 0;
+}
+.panel h2 { font: 600 17px/1.3 var(--sans); margin: 0 0 12px; }
+.panel h2:not(:first-child) { margin-top: 24px; }
+
+button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; touch-action: manipulation; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip {
+  min-height: 52px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  font-weight: 600;
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.primary {
+  width: 100%;
+  min-height: 64px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 22px;
+  font-weight: 700;
+}
+.primary:active { transform: scale(0.99); }
+.quiet {
+  min-height: 52px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  font-weight: 600;
+}
+.msg { color: var(--accent); min-height: 1.45em; margin: 14px 0 0; }
+.fine { color: var(--muted); font-size: 15px; margin: 18px 0 0; max-width: 56ch; }
+
+/* Play */
+.topbar { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-weight: 600; }
+.timer { font-variant-numeric: tabular-nums; font-size: 30px; color: var(--ink); transition: color .15s; }
+.prompt { text-align: center; padding: 22px 0 4px; }
+.say { color: var(--muted); font-size: 20px; }
+.note {
+  font: 600 clamp(120px, 30vw, 220px)/1 var(--serif);
+  letter-spacing: -0.02em;
+  margin: 4px 0 0;
+  transition: color .15s;
+}
+.alt { color: var(--muted); min-height: 1.45em; }
+.onstring { font-size: 28px; font-weight: 600; margin-top: 10px; }
+.ord { color: var(--muted); font-size: 17px; font-weight: 500; }
+.board { margin: 20px auto 6px; max-width: 560px; }
+.board svg { width: 100%; height: auto; display: block; }
+.board .fretwire { stroke: var(--line); stroke-width: 2; }
+.board .nut { stroke: var(--muted); stroke-width: 6; stroke-linecap: round; }
+.board .str { stroke: var(--muted); opacity: .55; stroke-linecap: round; }
+.board .str.on { stroke: var(--accent); opacity: 1; }
+.board .lbl { fill: var(--muted); font: 600 13px var(--sans); }
+.board .lbl.on { fill: var(--accent); }
+.heard { display: flex; align-items: center; justify-content: center; gap: 14px; color: var(--muted); margin-top: 10px; }
+.heard strong { color: var(--ink); display: inline-block; min-width: 4.2em; text-align: left; font-variant-numeric: tabular-nums; }
+.meter { flex: 0 0 140px; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--muted); transition: width .05s linear; }
+.actions { display: flex; gap: 12px; justify-content: center; margin-top: 26px; }
+#play.hit .note, #play.hit .timer { color: var(--hit); }
+#play.hit .meter i { background: var(--hit); }
+
+/* Results */
+.result { text-align: center; }
+.result .say { font-size: 18px; }
+.avg { font: 600 clamp(76px, 20vw, 128px)/1 var(--serif); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin: 6px 0; }
+.bestline { color: var(--muted); margin: 0; }
+.stats { display: flex; justify-content: center; gap: 40px; margin-top: 18px; }
+.stats b { display: block; font: 600 26px/1.2 var(--serif); font-variant-numeric: tabular-nums; }
+.stats span { color: var(--muted); font-size: 15px; }
+ol.rounds { margin: 0; padding-left: 1.7em; }
+ol.rounds li { padding: 12px 0; border-bottom: 1px solid var(--line); }
+ol.rounds li:last-child { border-bottom: 0; }
+ol.rounds li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
+.row { display: flex; justify-content: space-between; gap: 12px; }
+.row .t { font-variant-numeric: tabular-nums; font-weight: 600; }
+.row .n { font-weight: 600; }
+.row .s { color: var(--muted); }
+.split { display: flex; gap: 12px; }
+.split .primary { flex: 2; }
+.split .quiet { flex: 1; border-radius: 18px; min-height: 64px; }
+
+/* Countdown */
+.countdown { text-align: center; padding: 60px 0; }
+.countdown .say { color: var(--muted); font-size: 20px; }
+.cnum { font: 600 clamp(120px, 34vw, 220px)/1 var(--serif); margin-top: 6px; }
+</style>
+</head>
+<body>
+<main>
+
+<section id="setup">
+  <p style="margin:0;font-size:15px"><a href="index.html" style="color:var(--accent)">&larr; Practice hub</a></p>
+  <h1>Fretboard finder</h1>
+  <p class="lead">You get a string and a note. Find it on your guitar and play it. The app listens, then moves straight on. After ten rounds you see your average time.</p>
+
+  <div class="panel">
+    <h2>Strings to practise</h2>
+    <div class="chips" id="stringChips"></div>
+    <h2>Notes</h2>
+    <div class="chips" id="noteChips" role="radiogroup" aria-label="Notes">
+      <button class="chip" type="button" data-v="all" aria-pressed="true">All 12 notes</button>
+      <button class="chip" type="button" data-v="nat" aria-pressed="false">Natural notes only</button>
+    </div>
+  </div>
+
+  <button class="primary" id="startBtn" type="button">Start</button>
+  <p class="msg" id="msg" role="status"></p>
+  <p class="fine">Assumes standard tuning (E A D G B E). The iPad will ask for microphone access. Any octave counts, and the same pitch played on a different string also counts. Works best in a quiet room with the iPad a foot or two from the guitar.</p>
+</section>
+
+<section id="play" hidden>
+  <div class="countdown" id="countdown" aria-live="assertive">
+    <div class="say">Get ready</div>
+    <div class="cnum" id="cnum">5</div>
+  </div>
+
+  <div id="playInner">
+  <div class="topbar">
+    <span id="roundLbl">Round 1 of 10</span>
+    <span class="timer" id="timerLbl">0.0 s</span>
+  </div>
+
+  <div class="prompt" aria-live="polite">
+    <div class="say">Play</div>
+    <div class="note" id="noteBig">C</div>
+    <div class="alt" id="noteAlt"></div>
+    <div class="onstring">on the <span id="stringName">low E</span> string <span class="ord" id="stringOrd"></span></div>
+  </div>
+
+  <div class="board"><svg id="board" viewBox="0 0 320 144" role="img" aria-label="The target string is highlighted"></svg></div>
+
+  <div class="heard">
+    <span>Hearing <strong id="heard">–</strong></span>
+    <div class="meter" aria-hidden="true"><i id="meterFill"></i></div>
+  </div>
+
+  <div class="actions">
+    <button class="quiet" id="skipBtn" type="button">Skip this one</button>
+    <button class="quiet" id="quitBtn" type="button">Quit</button>
+  </div>
+  </div>
+</section>
+
+<section id="results" hidden>
+  <div class="result">
+    <div class="say">Average time per note</div>
+    <div class="avg" id="avg">0.00 s</div>
+    <p class="bestline" id="bestLine"></p>
+    <div class="stats">
+      <div><b id="fastest">–</b><span>Fastest</span></div>
+      <div><b id="slowest">–</b><span>Slowest</span></div>
+    </div>
+  </div>
+  <div class="panel"><ol class="rounds" id="roundList"></ol></div>
+  <div class="split">
+    <button class="primary" id="againBtn" type="button">Go again</button>
+    <button class="quiet" id="settingsBtn" type="button">Settings</button>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var ROUNDS = 10;      // notes per exercise
+  var W = 2048;         // analysis window (samples)
+  var GATE = 0.006;     // minimum signal level (RMS) before we try to find a pitch
+  var HOLD = 3;         // consecutive matching readings needed
+  var TICK = 40;        // ms between readings
+  var LOCKOUT = 250;    // ms after a new prompt before listening
+  var YIN_T = 0.15;     // YIN threshold
+
+  var STRINGS = [
+    { n: 1, name: 'high E', letter: 'E', ord: '1st' },
+    { n: 2, name: 'B',      letter: 'B', ord: '2nd' },
+    { n: 3, name: 'G',      letter: 'G', ord: '3rd' },
+    { n: 4, name: 'D',      letter: 'D', ord: '4th' },
+    { n: 5, name: 'A',      letter: 'A', ord: '5th' },
+    { n: 6, name: 'low E',  letter: 'E', ord: '6th' }
+  ];
+  var SHARP = ['C','C\u266F','D','D\u266F','E','F','F\u266F','G','G\u266F','A','A\u266F','B'];
+  var FLAT  = ['C','D\u266D','D','E\u266D','E','F','G\u266D','G','A\u266D','A','B\u266D','B'];
+  var NAT   = [0, 2, 4, 5, 7, 9, 11];
+  var ALL   = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+  function $(id) { return document.getElementById(id); }
+  function noteFull(pc) { return SHARP[pc] === FLAT[pc] ? SHARP[pc] : SHARP[pc] + '/' + FLAT[pc]; }
+  function fmt(ms) { return (ms / 1000).toFixed(2) + ' s'; }
+
+  var settings = { strings: new Set([1, 2, 3, 4, 5, 6]), naturals: false };
+  var ctx = null, analyser = null, stream = null, buf = null, dArr = null;
+  var tauMin = 0, tauMax = 0, loop = null, wake = null, game = null;
+
+  /* ---------- Setup screen ---------- */
+  var chipBox = $('stringChips');
+  STRINGS.slice().reverse().forEach(function (s) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.setAttribute('aria-pressed', 'true');
+    b.textContent = s.n + ' ' + s.name;
+    b.addEventListener('click', function () {
+      var on = b.getAttribute('aria-pressed') === 'true';
+      if (on && settings.strings.size === 1) return; // keep at least one string
+      if (on) settings.strings.delete(s.n); else settings.strings.add(s.n);
+      b.setAttribute('aria-pressed', String(!on));
+    });
+    chipBox.appendChild(b);
+  });
+
+  Array.prototype.forEach.call($('noteChips').querySelectorAll('button'), function (b) {
+    b.addEventListener('click', function () {
+      settings.naturals = b.getAttribute('data-v') === 'nat';
+      Array.prototype.forEach.call($('noteChips').querySelectorAll('button'), function (o) {
+        o.setAttribute('aria-pressed', String(o === b));
+      });
+    });
+  });
+
+  function show(name) {
+    ['setup', 'play', 'results'].forEach(function (id) { $(id).hidden = id !== name; });
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Audio ---------- */
+  async function initAudio() {
+    if (ctx && stream && stream.active) { try { await ctx.resume(); } catch (e) {} return; }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('unsupported');
+    if (ctx) { try { ctx.close(); } catch (e) {} ctx = null; }
+    ctx = new AC();            // created inside the tap so iOS allows it to run
+    try { ctx.resume(); } catch (e) {}
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    var src = ctx.createMediaStreamSource(stream);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 4096;
+    analyser.smoothingTimeConstant = 0;
+    src.connect(analyser);     // not connected to speakers, so no feedback
+    buf = new Float32Array(analyser.fftSize);
+    tauMax = Math.min(Math.floor(ctx.sampleRate / 70), buf.length - W - 1);
+    tauMin = Math.floor(ctx.sampleRate / 1200);
+    dArr = new Float32Array(tauMax + 2);
+  }
+
+  function stopAudio() {
+    stopLoop();
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    if (ctx) { try { ctx.close(); } catch (e) {} ctx = null; }
+    analyser = null;
+  }
+
+  // YIN pitch detection: returns frequency in Hz or null
+  function yin() {
+    var d = dArr, i, tau, s, x;
+    for (tau = 1; tau <= tauMax; tau++) {
+      s = 0;
+      for (i = 0; i < W; i++) { x = buf[i] - buf[i + tau]; s += x * x; }
+      d[tau] = s;
+    }
+    var run = 0;
+    d[0] = 1;
+    for (tau = 1; tau <= tauMax; tau++) {
+      run += d[tau];
+      d[tau] = run === 0 ? 1 : d[tau] * tau / run;
+    }
+    tau = tauMin;
+    while (tau < tauMax - 1) {
+      if (d[tau] < YIN_T) {
+        while (tau + 1 < tauMax && d[tau + 1] < d[tau]) tau++;
+        var a = d[tau - 1], b = d[tau], c = d[tau + 1];
+        var denom = a - 2 * b + c;
+        var shift = denom !== 0 ? 0.5 * (a - c) / denom : 0;
+        return ctx.sampleRate / (tau + shift);
+      }
+      tau++;
+    }
+    return null;
+  }
+
+  function micMessage(e) {
+    var n = e && e.name;
+    if (n === 'NotAllowedError' || n === 'SecurityError') {
+      return 'The microphone is blocked. Allow microphone access for this page, then tap Start again. If the page is open inside another app, open its link directly in Safari.';
+    }
+    if (n === 'NotFoundError') return 'No microphone found on this device.';
+    return 'The microphone can\u2019t be used here. Open this page\u2019s link directly in Safari and tap Start again.';
+  }
+
+  /* ---------- Game ---------- */
+  async function start() {
+    $('msg').textContent = '';
+    try { await initAudio(); }
+    catch (e) { show('setup'); $('msg').textContent = micMessage(e); return; }
+    countdown(5);
+  }
+
+  function countdown(n) {
+    show('play');
+    $('countdown').hidden = false;
+    $('playInner').hidden = true;
+    $('cnum').textContent = n;
+    if (countdown.timer) clearTimeout(countdown.timer);
+    countdown.timer = setTimeout(function () {
+      if (n > 1) countdown(n - 1);
+      else { $('countdown').hidden = true; $('playInner').hidden = false; beginGame(); }
+    }, 1000);
+  }
+
+  function beginGame() {
+    if (game && game.timeout) clearTimeout(game.timeout);
+    game = { results: [], lastPc: -1, target: null, t0: 0, streak: 0, streakStart: 0, locked: false, timeout: null };
+    $('play').classList.remove('hit');
+    show('play');
+    requestWake();
+    newTarget();
+    stopLoop();
+    loop = setInterval(tick, TICK);
+  }
+
+  function newTarget() {
+    var strs = STRINGS.filter(function (s) { return settings.strings.has(s.n); });
+    var pcs = settings.naturals ? NAT : ALL;
+    var s, pc, tries = 0;
+    do {
+      s = strs[Math.floor(Math.random() * strs.length)];
+      pc = pcs[Math.floor(Math.random() * pcs.length)];
+      tries++;
+    } while (pc === game.lastPc && tries < 60);   // never repeat the same note back to back
+    game.target = { s: s, pc: pc };
+    game.lastPc = pc;
+    game.streak = 0;
+    game.locked = false;
+    game.t0 = performance.now();
+
+    $('roundLbl').textContent = 'Round ' + (game.results.length + 1) + ' of ' + ROUNDS;
+    $('timerLbl').textContent = '0.0 s';
+    $('noteBig').textContent = SHARP[pc];
+    $('noteAlt').textContent = SHARP[pc] === FLAT[pc] ? '' : 'also written ' + FLAT[pc];
+    $('stringName').textContent = s.name;
+    $('stringOrd').textContent = '(' + s.ord + ' string)';
+    drawBoard(s.n);
+  }
+
+  function drawBoard(target) {
+    var out = '';
+    [100, 150, 195, 237, 276].forEach(function (x) {
+      out += '<line class="fretwire" x1="' + x + '" x2="' + x + '" y1="12" y2="132"/>';
+    });
+    out += '<line class="nut" x1="52" x2="52" y1="12" y2="132"/>';
+    STRINGS.forEach(function (s, i) {
+      var y = 22 + i * 20;
+      var on = s.n === target;
+      var w = on ? 5 : (1 + (s.n - 1) * 0.4);
+      out += '<line class="str' + (on ? ' on' : '') + '" x1="52" x2="306" y1="' + y + '" y2="' + y + '" stroke-width="' + w + '"/>';
+      out += '<text class="lbl' + (on ? ' on' : '') + '" x="12" y="' + (y + 4.5) + '">' + s.n + '</text>';
+      out += '<text class="lbl' + (on ? ' on' : '') + '" x="30" y="' + (y + 4.5) + '">' + s.letter + '</text>';
+    });
+    $('board').innerHTML = out;
+  }
+
+  function tick() {
+    if (!analyser) return;
+    analyser.getFloatTimeDomainData(buf);
+    var sum = 0, i;
+    for (i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    var rms = Math.sqrt(sum / buf.length);
+    $('meterFill').style.width = Math.min(100, rms * 900) + '%';
+
+    var pc = null;
+    if (rms > GATE) {
+      var f = yin();
+      if (f) {
+        var m = 69 + 12 * Math.log2(f / 440);
+        var r = Math.round(m);
+        if (Math.abs(m - r) < 0.4) pc = ((r % 12) + 12) % 12;
+      }
+    }
+    $('heard').textContent = pc === null ? '\u2013' : noteFull(pc);
+
+    if (!game || game.locked) return;
+    var now = performance.now();
+    $('timerLbl').textContent = ((now - game.t0) / 1000).toFixed(1) + ' s';
+    if (now - game.t0 < LOCKOUT) return;
+
+    if (pc !== null && pc === game.target.pc) {
+      if (game.streak === 0) game.streakStart = now;
+      game.streak++;
+      if (game.streak >= HOLD) hit();
+    } else if (game.streak > 0) {
+      game.streak--;
+    }
+  }
+
+  function hit() {
+    var ms = Math.max(0, game.streakStart - game.t0);
+    game.locked = true;
+    game.results.push({ s: game.target.s, pc: game.target.pc, ms: ms });
+    $('timerLbl').textContent = fmt(ms);
+    $('play').classList.add('hit');
+    game.timeout = setTimeout(function () {
+      if (!game) return;
+      $('play').classList.remove('hit');
+      if (game.results.length >= ROUNDS) finish(); else newTarget();
+    }, 650);
+  }
+
+  function skip() {
+    if (!game || game.locked) return;
+    newTarget();
+  }
+
+  function quit() {
+    if (countdown.timer) { clearTimeout(countdown.timer); countdown.timer = null; }
+    if (game && game.timeout) clearTimeout(game.timeout);
+    game = null;
+    $('play').classList.remove('hit');
+    stopAudio();
+    releaseWake();
+    show('setup');
+  }
+
+  /* ---------- Results ---------- */
+  function bestKey() {
+    return 'ff-best-' + (settings.naturals ? 'n' : 'a') + '-' + Array.from(settings.strings).sort().join('');
+  }
+  function loadBest() {
+    try { var v = parseFloat(localStorage.getItem(bestKey())); return isFinite(v) ? v : null; } catch (e) { return null; }
+  }
+  function saveBest(v) { try { localStorage.setItem(bestKey(), String(v)); } catch (e) {} }
+
+  function finish() {
+    stopLoop();
+    releaseWake();
+    var r = game.results;
+    var times = r.map(function (x) { return x.ms; });
+    var avg = times.reduce(function (a, b) { return a + b; }, 0) / times.length;
+    $('avg').textContent = fmt(avg);
+    try {
+      var strs = Array.from(settings.strings).sort(function (a, b) { return b - a; });
+      var lbl = (strs.length === 6 ? 'All strings' : 'Strings ' + strs.join(', ')) + ' \u00B7 ' + (settings.naturals ? 'Naturals' : 'All notes');
+      var L = JSON.parse(localStorage.getItem('gph:log') || '[]');
+      L.push({ m: 'fretboard-finder', t: Date.now(), s: Math.round(avg / 10) / 100, l: lbl });
+      localStorage.setItem('gph:log', JSON.stringify(L));
+    } catch (e) {}
+    $('fastest').textContent = fmt(Math.min.apply(null, times));
+    $('slowest').textContent = fmt(Math.max.apply(null, times));
+
+    var prev = loadBest();
+    if (prev === null) { $('bestLine').textContent = 'First score saved for these settings.'; saveBest(avg); }
+    else if (avg < prev) { $('bestLine').textContent = 'New best. The old one was ' + fmt(prev) + '.'; saveBest(avg); }
+    else { $('bestLine').textContent = 'Your best for these settings is ' + fmt(prev) + '.'; }
+
+    var list = $('roundList');
+    list.innerHTML = '';
+    r.forEach(function (x) {
+      var li = document.createElement('li');
+      var row = document.createElement('div');
+      row.className = 'row';
+      var left = document.createElement('span');
+      var n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = noteFull(x.pc);
+      var s = document.createElement('span');
+      s.className = 's';
+      s.textContent = ' on the ' + x.s.name + ' string';
+      left.appendChild(n); left.appendChild(s);
+      var t = document.createElement('span');
+      t.className = 't';
+      t.textContent = fmt(x.ms);
+      row.appendChild(left); row.appendChild(t);
+      li.appendChild(row);
+      list.appendChild(li);
+    });
+    show('results');
+  }
+
+  /* ---------- Helpers ---------- */
+  function stopLoop() { if (loop) { clearInterval(loop); loop = null; } }
+  function requestWake() {
+    try {
+      if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { wake = l; }).catch(function () {});
+    } catch (e) {}
+  }
+  function releaseWake() { try { if (wake) { wake.release(); wake = null; } } catch (e) {} }
+
+  $('startBtn').addEventListener('click', start);
+  $('againBtn').addEventListener('click', start);
+  $('skipBtn').addEventListener('click', skip);
+  $('quitBtn').addEventListener('click', quit);
+  $('settingsBtn').addEventListener('click', function () { game = null; stopAudio(); show('setup'); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chord Change Challenge</title>
+<style>
+:root{--bg:#f6f3ee;--fg:#1d1b18;--mut:#6f695f;--card:#fff;--acc:#d9531e;--ok:#2b8a4b;--line:#ded8cc;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171513;--fg:#f1ece4;--mut:#a39c90;--card:#221f1c;--acc:#ff7a45;--ok:#5fcf86;--line:#38332d}}
+:root[data-theme="dark"]{--bg:#171513;--fg:#f1ece4;--mut:#a39c90;--card:#221f1c;--acc:#ff7a45;--ok:#5fcf86;--line:#38332d}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+[hidden]{display:none!important}
+.wrap{max-width:560px;margin:0 auto;padding:24px 20px 40px}
+h1{font-size:28px;margin:0 0 8px}
+.mut{color:var(--mut)}.small{font-size:13px}
+.row{display:flex;gap:12px;margin:20px 0}
+label{flex:1;font-size:13px;color:var(--mut);display:flex;flex-direction:column;gap:6px}
+select{font-size:20px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.chords{display:flex;gap:12px;margin:16px 0}
+.cc{flex:1;background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;text-align:center;transition:border-color .1s,transform .1s}
+.cc.on{border-color:var(--ok);transform:scale(1.03)}
+.cc b{display:block;font-size:40px}
+.cc code{font-size:15px;color:var(--mut);letter-spacing:2px}
+button{width:100%;font-size:20px;font-weight:600;padding:16px;border:0;border-radius:14px;background:var(--acc);color:#fff;margin-top:8px}
+button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.err{color:#c0392b;min-height:1.4em}
+#phase{text-align:center;font-size:16px;color:var(--mut);text-transform:uppercase;letter-spacing:2px;margin-top:8px}
+#big{text-align:center;font-size:120px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat{text-align:center;font-size:22px}
+.stat span{font-size:56px;font-weight:700;color:var(--acc);margin-left:8px;vertical-align:middle}
+.meter{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin:16px 0 8px}
+.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
+#heard{text-align:center;min-height:1.4em}
+.res{text-align:center;margin:24px 0}
+.res .num{font-size:96px;font-weight:700;color:var(--acc);line-height:1}
+</style></head>
+<body><main class="wrap">
+
+<section id="setup">
+ <p class="small"><a href="index.html" style="color:var(--acc)">← Practice hub</a></p>
+ <h1>Chord change challenge</h1>
+ <p class="mut">Pick two chords. After a 5-second countdown, switch back and forth as fast as you can while the mic counts your changes for one minute.</p>
+ <div class="row"><label>Chord A<select id="a"></select></label><label>Chord B<select id="b"></select></label></div>
+ <div class="chords"><div class="cc"><b id="sa"></b><code id="fa"></code></div><div class="cc"><b id="sb"></b><code id="fb"></code></div></div>
+ <p class="mut small" id="best"></p>
+ <button class="ghost" id="rnd">🎲 Random chords</button>
+ <button id="go">Start</button>
+ <p class="err" id="err"></p>
+ <p class="mut small">Fingerings read low E to high E (x = muted). Use a quiet room, strum clearly, and let each chord ring for a moment.</p>
+</section>
+
+<section id="play" hidden>
+ <div id="phase">Get ready</div>
+ <div id="big">5</div>
+ <div class="chords"><div class="cc" id="ca"><b></b><code></code></div><div class="cc" id="cb"><b></b><code></code></div></div>
+ <div class="stat">Changes<span id="n">0</span></div>
+ <div class="meter"><i id="lvl"></i></div>
+ <div id="heard" class="mut"></div>
+ <button class="ghost" id="stop">Stop</button>
+</section>
+
+<section id="done" hidden>
+ <h1>Time’s up</h1>
+ <div class="res"><div class="num" id="rn">0</div><div class="mut">chord changes in 60 seconds</div><p id="rb" class="mut"></p></div>
+ <button id="again">Go again</button>
+ <button class="ghost" id="rnd2">🎲 New random pair</button>
+ <button class="ghost" id="back">Change chords</button>
+</section>
+
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const CH=[["C",0,"M","x32010"],["D",2,"M","xx0232"],["E",4,"M","022100"],["F",5,"M","133211"],["G",7,"M","320003"],["A",9,"M","x02220"],["B",11,"M","x24442"],
+["Am",9,"m","x02210"],["Bm",11,"m","x24432"],["Cm",0,"m","x35543"],["Dm",2,"m","xx0231"],["Em",4,"m","022000"],["Fm",5,"m","133111"],["Gm",7,"m","355333"],
+["C7",0,"7","x32310"],["D7",2,"7","xx0212"],["E7",4,"7","020100"],["G7",7,"7","320001"],["A7",9,"7","x02020"],["B7",11,"7","x21202"],
+["Cmaj7",0,"M7","x32000"],["Fmaj7",5,"M7","xx3210"],["Am7",9,"m7","x02010"],["Dm7",2,"m7","xx0211"],["Em7",4,"m7","022030"],
+["Asus2",9,"s2","x02200"],["Asus4",9,"s4","x02230"],["Csus2",0,"s2","x30010"],["Dsus2",2,"s2","xx0230"],["Dsus4",2,"s4","xx0233"],["Esus4",4,"s4","022200"],["Gsus2",7,"s2","300033"],["Gsus4",7,"s4","320013"]];
+const IV={M:[0,4,7],m:[0,3,7],"7":[0,4,7,10],M7:[0,4,7,11],m7:[0,3,7,10],s2:[0,2,7],s4:[0,5,7]};
+function tmpl(c){const t=new Float32Array(12);IV[c[2]].forEach(i=>t[(c[1]+i)%12]=i?1:1.3);const n=Math.hypot(...t);return t.map(v=>v/n)}
+const A=$("a"),B=$("b");
+CH.forEach((c,i)=>{A.add(new Option(c[0],i));B.add(new Option(c[0],i))});
+A.value=4;B.value=0;
+function key(){return"cc-best:"+CH[A.value][0]+"-"+CH[B.value][0]}
+function getBest(){try{return+localStorage.getItem(key())||0}catch(e){return 0}}
+function preview(){const a=CH[A.value],b=CH[B.value];
+ $("sa").textContent=a[0];$("fa").textContent=a[3];$("sb").textContent=b[0];$("fb").textContent=b[3];
+ const bs=getBest();$("best").textContent=bs?"Your best for "+a[0]+" ↔ "+b[0]+": "+bs+" changes":"";
+ $("go").disabled=A.value===B.value;$("err").textContent=A.value===B.value?"Pick two different chords.":""}
+A.onchange=B.onchange=preview;preview();
+
+let ctx,stream,an,buf,pcs,lo,hi,timer,t0,phase,energies,gate,tA,tB,run,stable,changes,cA,cB;
+function show(id){["setup","play","done"].forEach(s=>$(s).hidden=s!==id)}
+let wl;async function lock(){try{wl=await navigator.wakeLock.request("screen")}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&ctx)lock()});
+function cleanup(){clearInterval(timer);try{wl&&wl.release()}catch(e){}wl=null;try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx&&ctx.close()}catch(e){}stream=ctx=null}
+function cos(v,t){let d=0,n=0;for(let i=0;i<12;i++){d+=v[i]*t[i];n+=v[i]*v[i]}return n?d/Math.sqrt(n):0}
+
+async function start(){
+ $("err").textContent="";
+ cA=CH[A.value];cB=CH[B.value];tA=tmpl(cA);tB=tmpl(cB);
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  ctx=new(window.AudioContext||window.webkitAudioContext)();await ctx.resume();
+ }catch(e){$("err").textContent="Microphone access is needed. Allow it in your browser settings and try again.";return}
+ an=ctx.createAnalyser();an.fftSize=16384;an.smoothingTimeConstant=.2;
+ ctx.createMediaStreamSource(stream).connect(an);
+ buf=new Float32Array(an.frequencyBinCount);
+ const bw=ctx.sampleRate/an.fftSize;lo=Math.ceil(75/bw);hi=Math.floor(1400/bw);
+ pcs=new Int8Array(hi+1).fill(-1);
+ for(let i=lo;i<=hi;i++){const m=69+12*Math.log2(i*bw/440),r=Math.round(m);if(Math.abs(m-r)<.35)pcs[i]=((r%12)+12)%12}
+ ["ca","cb"].forEach((id,k)=>{const c=k?cB:cA;$(id).firstElementChild.textContent=c[0];$(id).lastElementChild.textContent=c[3];$(id).classList.remove("on")});
+ phase="count";energies=[];gate=.05;run={l:null,n:0};stable=null;changes=0;
+ $("n").textContent=0;$("phase").textContent="Get ready";$("big").textContent=5;$("heard").textContent="";
+ show("play");lock();t0=performance.now();timer=setInterval(tick,90);
+}
+
+function tick(){
+ const t=performance.now()-t0;
+ an.getFloatFrequencyData(buf);
+ const ch=new Float32Array(12);let e=0;
+ for(let i=lo;i<=hi;i++){const m=Math.pow(10,buf[i]/20);e+=m;if(pcs[i]>=0)ch[pcs[i]]+=m}
+ $("lvl").style.width=Math.max(0,Math.min(100,Math.log10(e/.005)*40))+"%";
+ if(phase==="count"){
+  energies.push(e);
+  if(t<5000){$("big").textContent=Math.ceil((5000-t)/1000);return}
+  const s=energies.slice().sort((x,y)=>x-y);
+  gate=Math.max(s[Math.floor(s.length*.25)]*4,.05);
+  phase="run";$("phase").textContent="Play! Switch chords";
+ }
+ if(t>=65000){finish();return}
+ $("big").textContent=Math.ceil((65000-t)/1000);
+ let lab=null;
+ if(e>gate){
+  const sa=cos(ch,tA),sb=cos(ch,tB);
+  if(Math.max(sa,sb)>.5&&Math.abs(sa-sb)>.05)lab=sa>sb?"A":"B";
+ }
+ if(lab===run.l)run.n++;else{run.l=lab;run.n=1}
+ if(lab&&run.n>=3&&lab!==stable){
+  if(stable){changes++;$("n").textContent=changes}
+  stable=lab;
+  $("ca").classList.toggle("on",lab==="A");$("cb").classList.toggle("on",lab==="B");
+  $("heard").textContent="Heard "+(lab==="A"?cA[0]:cB[0]);
+ }
+}
+
+function finish(){
+ cleanup();
+ try{const L=JSON.parse(localStorage.getItem("gph:log")||"[]");L.push({m:"chord-changes",t:Date.now(),s:changes,l:cA[0]+" \u2194 "+cB[0]});localStorage.setItem("gph:log",JSON.stringify(L))}catch(e){}
+ $("rn").textContent=changes;
+ const prev=getBest();let msg="";
+ if(changes>prev){msg=prev?"New personal best! (previous: "+prev+")":"First score saved for this pair.";try{localStorage.setItem(key(),changes)}catch(e){}}
+ else msg="Personal best for this pair: "+prev;
+ $("rb").textContent=cA[0]+" ↔ "+cB[0]+" · "+msg;
+ show("done");
+}
+const pk=c=>tmpl(c).map(v=>v>0?1:0).join("");
+function randomPair(){let i,j;do{i=Math.floor(Math.random()*CH.length);j=Math.floor(Math.random()*CH.length)}while(i===j||pk(CH[i])===pk(CH[j]));A.value=i;B.value=j;preview()}
+$("rnd").onclick=randomPair;
+$("rnd2").onclick=()=>{randomPair();show("setup")};
+randomPair();
+$("go").onclick=start;
+$("stop").onclick=()=>{cleanup();preview();show("setup")};
+$("again").onclick=start;
+$("back").onclick=()=>{preview();show("setup")};
+</script></body></html>
