@@ -64,7 +64,8 @@ const $=id=>document.getElementById(id);
 // high:true = bigger score is better; high:false = smaller is better.
 const MODULES=[
  {id:"chord-changes",name:"Chord changes",icon:"🎸",file:"chord-changes.html",unit:"changes in 60s",high:true,desc:"Switch between two chords for one minute"},
- {id:"fretboard-finder",name:"Fretboard finder",icon:"🎯",file:"fretboard-finder.html",unit:"s average per note",high:false,desc:"Find the called note on the called string (lower is better)"}
+ {id:"fretboard-finder",name:"Fretboard finder",icon:"🎯",file:"fretboard-finder.html",unit:"s average per note",high:false,desc:"Find the called note on the called string (lower is better)"},
+ {id:"scales",name:"Scales",icon:"🎼",file:"scales.html",unit:"BPM",high:true,desc:"Four minutes of scales with a metronome"}
 ];
 let sel=MODULES[0].id,filt="all",cur=[];
 function log(){try{const L=JSON.parse(localStorage.getItem("gph:log")||"[]");return(Array.isArray(L)?L:[]).sort((a,b)=>a.t-b.t)}catch(e){return[]}}

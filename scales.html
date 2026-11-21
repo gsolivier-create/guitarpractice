@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scales</title>
+<style>
+:root{--bg:#f6f3ee;--fg:#1d1b18;--mut:#6f695f;--card:#fff;--acc:#d9531e;--ok:#2b8a4b;--line:#ded8cc;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171513;--fg:#f1ece4;--mut:#a39c90;--card:#221f1c;--acc:#ff7a45;--ok:#5fcf86;--line:#38332d}}
+:root[data-theme="dark"]{--bg:#171513;--fg:#f1ece4;--mut:#a39c90;--card:#221f1c;--acc:#ff7a45;--ok:#5fcf86;--line:#38332d}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+[hidden]{display:none!important}
+.wrap{max-width:560px;margin:0 auto;padding:24px 20px 40px}
+h1{font-size:28px;margin:0 0 8px}
+.mut{color:var(--mut)}.small{font-size:13px}
+a{color:var(--acc)}
+button{font:inherit;font-weight:600;border:0;border-radius:14px;cursor:pointer;touch-action:manipulation}
+.main{width:100%;font-size:20px;padding:16px;background:var(--acc);color:#fff;margin-top:12px}
+.ghost{width:100%;font-size:18px;padding:14px;background:transparent;color:var(--fg);border:1px solid var(--line);margin-top:10px}
+.bpm{display:flex;align-items:center;gap:12px;justify-content:center;margin:20px 0 8px}
+.bpm .v{text-align:center;min-width:120px}
+.bpm .v b{display:block;font-size:72px;line-height:1;font-variant-numeric:tabular-nums}
+.step{width:64px;height:64px;font-size:30px;background:var(--card);color:var(--fg);border:1px solid var(--line)}
+input[type=range]{width:100%;accent-color:var(--acc);margin:8px 0}
+.row{display:flex;gap:10px;justify-content:center;margin:6px 0 14px}
+.row .step{width:auto;height:auto;font-size:15px;padding:8px 14px}
+select{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+#clock{text-align:center;font-size:110px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:12px}
+#phase{text-align:center;color:var(--mut);text-transform:uppercase;letter-spacing:2px;font-size:15px;margin-top:8px}
+.dots{display:flex;gap:14px;justify-content:center;margin:22px 0}
+.dots i{width:30px;height:30px;border-radius:50%;border:3px solid var(--line);background:transparent;transition:background .05s}
+.dots i.first{border-color:var(--acc)}
+.dots i.on{background:var(--ok);border-color:var(--ok)}
+.dots i.first.on{background:var(--acc);border-color:var(--acc)}
+.res{text-align:center;margin:24px 0}
+.res .num{font-size:96px;font-weight:700;color:var(--acc);line-height:1}
+.sc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center;margin:16px 0}
+.sc .sn{font-size:30px;font-weight:700;color:var(--acc)}
+.sc .notes{letter-spacing:1px;margin:2px 0 8px;word-spacing:6px}
+</style></head>
+<body><main class="wrap">
+
+<section id="setup">
+ <p class="small"><a href="index.html">← Practice hub</a></p>
+ <h1>Scales</h1>
+ <p class="mut">Play the suggested scale along with the beat. A 4-minute timer runs while the metronome clicks.</p>
+ <div class="sc"><div class="mut small">Suggested scale</div><div class="sn" id="sname"></div><div class="mut notes" id="snotes"></div><button class="step" id="rs" style="width:auto;height:auto;font-size:15px;padding:8px 14px">🎲 Another scale</button></div>
+ <div class="bpm">
+  <button class="step" id="m1" aria-label="Slower">−</button>
+  <div class="v"><b id="bpm">80</b><span class="mut small">BPM</span></div>
+  <button class="step" id="p1" aria-label="Faster">+</button>
+ </div>
+ <input type="range" id="sl" min="30" max="240" aria-label="Tempo">
+ <div class="row"><button class="step" id="m5">−5</button><button class="step" id="p5">+5</button></div>
+ <div class="row"><label class="mut">Beats per bar <select id="bt"><option>2</option><option>3</option><option selected>4</option><option>6</option></select></label></div>
+ <div class="row"><label class="mut">Scales <select id="sset"><option value="b">Beginner</option><option value="a">All</option></select></label></div>
+ <p class="mut small" id="best"></p>
+ <button class="main" id="go">Start</button>
+</section>
+
+<section id="play" hidden>
+ <div id="phase">Playing</div>
+ <div class="sc" style="margin:8px 0 0"><div class="sn" id="sname2"></div><div class="mut notes" id="snotes2"></div></div>
+ <div id="clock">4:00</div>
+ <div class="dots" id="dots"></div>
+ <div class="bpm">
+  <button class="step" id="lm">−</button>
+  <div class="v"><b id="lbpm" style="font-size:48px">80</b><span class="mut small">BPM</span></div>
+  <button class="step" id="lp">+</button>
+ </div>
+ <button class="ghost" id="stop">Stop</button>
+</section>
+
+<section id="done" hidden>
+ <h1>Time’s up</h1>
+ <div class="res"><div class="num" id="rn">80</div><div class="mut">BPM for 4 minutes</div><p class="mut" id="rb"></p></div>
+ <button class="main" id="again">Go again</button>
+ <button class="ghost" id="back">Change tempo</button>
+</section>
+
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const DUR=240;
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+let bpm=+lsGet("scales-bpm")||80,beats=4,ctx,timer,raf,wl,next,beat,q,t0,fin;
+function show(id){["setup","play","done"].forEach(s=>$(s).hidden=s!==id)}
+function setBpm(v){bpm=Math.max(30,Math.min(240,Math.round(v)));$("bpm").textContent=$("lbpm").textContent=bpm;$("sl").value=bpm;lsSet("scales-bpm",bpm)}
+function best(){try{const L=JSON.parse(lsGet("gph:log")||"[]").filter(e=>e.m==="scales");return L.length?Math.max(...L.map(e=>e.s)):0}catch(e){return 0}}
+function preview(){const b=best();$("best").textContent=b?"Your fastest completed 4 minutes: "+b+" BPM":""}
+$("m1").onclick=()=>setBpm(bpm-1);$("p1").onclick=()=>setBpm(bpm+1);
+$("m5").onclick=()=>setBpm(bpm-5);$("p5").onclick=()=>setBpm(bpm+5);
+$("lm").onclick=()=>setBpm(bpm-1);$("lp").onclick=()=>setBpm(bpm+1);
+$("sl").oninput=e=>setBpm(+e.target.value);
+$("bt").onchange=e=>beats=+e.target.value;
+const SH=["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"],FL=["C","D♭","D","E♭","E","F","G♭","G","A♭","A","B♭","B"];
+// [name, semitone steps, beginner-friendly?]
+const SC=[["Major",[0,2,4,5,7,9,11],1],["Natural minor",[0,2,3,5,7,8,10],1],["Minor pentatonic",[0,3,5,7,10],1],["Major pentatonic",[0,2,4,7,9],1],["Blues",[0,3,5,6,7,10],1],["Dorian",[0,2,3,5,7,9,10],0],["Mixolydian",[0,2,4,5,7,9,10],0],["Lydian",[0,2,4,6,7,9,11],0],["Phrygian",[0,1,3,5,7,8,10],0],["Harmonic minor",[0,2,3,5,7,8,11],0]];
+let sc=null;
+function pick(){
+ const pool=SC.filter(s=>$("sset").value==="a"||s[2]);
+ let n;
+ do{n={s:pool[Math.floor(Math.random()*pool.length)],k:Math.floor(Math.random()*12)}}while(sc&&n.s===sc.s&&n.k===sc.k);
+ sc=n;
+ const minorish=n.s[1].includes(3)&&!n.s[1].includes(4);
+ const names=([0,1,3,5,7,8,10].includes(n.k)||(minorish&&n.k===2))?FL:SH;
+ $("sname").textContent=$("sname2").textContent=names[n.k]+" "+n.s[0];
+ $("snotes").textContent=$("snotes2").textContent=n.s[1].map(i=>names[(n.k+i)%12]).join(" ");
+}
+$("rs").onclick=pick;$("sset").onchange=pick;
+setBpm(bpm);preview();pick();
+
+async function lock(){try{wl=await navigator.wakeLock.request("screen")}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&ctx&&!fin)lock()});
+function cleanup(){clearInterval(timer);cancelAnimationFrame(raf);try{wl&&wl.release()}catch(e){}wl=null}
+function click(t,f){
+ const o=ctx.createOscillator(),g=ctx.createGain();
+ o.type="triangle";o.frequency.value=f;
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.9,t+.002);g.gain.exponentialRampToValueAtTime(.0001,t+.07);
+ o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+.09);
+}
+function sched(){
+ while(next<ctx.currentTime+.12&&next-t0<DUR){
+  click(next,beat===0?1600:1000);q.push({t:next,b:beat});
+  next+=60/bpm;beat=(beat+1)%beats;
+ }
+}
+function flash(b){[...$("dots").children].forEach((d,i)=>d.classList.toggle("on",i===b))}
+function frame(){
+ const now=ctx.currentTime;
+ while(q.length&&q[0].t<=now)flash(q.shift().b);
+ const el=Math.max(0,now-t0),rem=Math.ceil(DUR-el);
+ if(el>=DUR){finish();return}
+ $("clock").textContent=Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0");
+ raf=requestAnimationFrame(frame);
+}
+async function start(){
+ const AC=window.AudioContext||window.webkitAudioContext;
+ ctx=new AC();try{await ctx.resume()}catch(e){}
+ fin=false;next=t0=ctx.currentTime+.2;beat=0;q=[];
+ $("dots").innerHTML=Array.from({length:beats},(_,i)=>`<i class="${i?"":"first"}"></i>`).join("");
+ $("clock").textContent="4:00";
+ show("play");lock();
+ timer=setInterval(sched,25);raf=requestAnimationFrame(frame);
+}
+function finish(){
+ fin=true;cleanup();
+ const t=ctx.currentTime+.05;click(t,1600);click(t+.18,1600);click(t+.36,2000);
+ setTimeout(()=>{try{ctx.close()}catch(e){}},900);
+ const prev=best();
+ try{const L=JSON.parse(lsGet("gph:log")||"[]");L.push({m:"scales",t:Date.now(),s:bpm});lsSet("gph:log",JSON.stringify(L))}catch(e){}
+ $("rn").textContent=bpm;
+ $("rb").textContent=bpm>prev?(prev?"New fastest tempo! (previous: "+prev+" BPM)":"First session saved."):"Your fastest so far: "+prev+" BPM";
+ show("done");
+}
+$("go").onclick=start;
+$("again").onclick=()=>{pick();start()};
+$("stop").onclick=()=>{fin=true;cleanup();try{ctx.close()}catch(e){}preview();show("setup")};
+$("back").onclick=()=>{preview();show("setup")};
+</script></body></html>
