@@ -56,6 +56,7 @@ button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)
  <div class="meter"><i id="lvl"></i></div>
  <div id="heard" class="mut"></div>
  <button class="ghost" id="stop">Stop</button>
+ <button class="ghost" id="hub">Quit to hub</button>
 </section>
 
 <section id="done" hidden>
@@ -159,6 +160,7 @@ $("rnd2").onclick=()=>{randomPair();show("setup")};
 randomPair();
 $("go").onclick=start;
 $("stop").onclick=()=>{cleanup();preview();show("setup")};
+$("hub").onclick=()=>{cleanup();location.href="index.html"};
 $("again").onclick=start;
 $("back").onclick=()=>{preview();show("setup")};
 </script></body></html>

@@ -68,6 +68,7 @@ select{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:1px so
   <button class="step" id="lp">+</button>
  </div>
  <button class="ghost" id="stop">Stop</button>
+ <button class="ghost" id="hub">Quit to hub</button>
 </section>
 
 <section id="done" hidden>
@@ -156,5 +157,6 @@ function finish(){
 $("go").onclick=start;
 $("again").onclick=()=>{pick();start()};
 $("stop").onclick=()=>{fin=true;cleanup();try{ctx.close()}catch(e){}preview();show("setup")};
+$("hub").onclick=()=>{fin=true;cleanup();try{ctx.close()}catch(e){}location.href="index.html"};
 $("back").onclick=()=>{preview();show("setup")};
 </script></body></html>

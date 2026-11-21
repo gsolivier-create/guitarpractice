@@ -210,9 +210,10 @@ ol.rounds li::marker { color: var(--muted); font-variant-numeric: tabular-nums; 
     <div class="meter" aria-hidden="true"><i id="meterFill"></i></div>
   </div>
 
-  <div class="actions">
+  <div class="actions" style="flex-wrap:wrap">
     <button class="quiet" id="skipBtn" type="button">Skip this one</button>
     <button class="quiet" id="quitBtn" type="button">Quit</button>
+    <button class="quiet" id="hubBtn" type="button">Quit to hub</button>
   </div>
   </div>
 </section>
@@ -567,6 +568,7 @@ ol.rounds li::marker { color: var(--muted); font-variant-numeric: tabular-nums; 
   $('againBtn').addEventListener('click', start);
   $('skipBtn').addEventListener('click', skip);
   $('quitBtn').addEventListener('click', quit);
+  $('hubBtn').addEventListener('click', function () { quit(); location.href = 'index.html'; });
   $('settingsBtn').addEventListener('click', function () { game = null; stopAudio(); show('setup'); });
 })();
 </script>
