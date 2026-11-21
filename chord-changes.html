@@ -41,11 +41,12 @@ button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)
  <p class="mut">Pick two chords. After a 5-second countdown, switch back and forth as fast as you can while the mic counts your changes for one minute.</p>
  <div class="row"><label>Chord A<select id="a"></select></label><label>Chord B<select id="b"></select></label></div>
  <div class="chords"><div class="cc"><b id="sa"></b><code id="fa"></code></div><div class="cc"><b id="sb"></b><code id="fb"></code></div></div>
+ <label class="mut small" style="display:block;margin:8px 0">Strum sensitivity <select id="sens"><option value="2.2">Low</option><option value="1.7" selected>Medium</option><option value="1.4">High</option></select></label>
  <p class="mut small" id="best"></p>
  <button class="ghost" id="rnd">🎲 Random chords</button>
  <button id="go">Start</button>
  <p class="err" id="err"></p>
- <p class="mut small">Fingerings read low E to high E (x = muted). Use a quiet room, strum clearly, and let each chord ring for a moment.</p>
+ <p class="mut small">Fingerings read low E to high E (x = muted). Use a quiet room and strum each chord once. Every strum after the first counts as one change, and the highlighted chord is the one to play next.</p>
 </section>
 
 <section id="play" hidden>
@@ -88,58 +89,49 @@ function preview(){const a=CH[A.value],b=CH[B.value];
  $("go").disabled=A.value===B.value;$("err").textContent=A.value===B.value?"Pick two different chords.":""}
 A.onchange=B.onchange=preview;preview();
 
-let ctx,stream,an,buf,pcs,lo,hi,timer,t0,phase,energies,gate,tA,tB,run,stable,changes,cA,cB;
+let ctx,stream,an,buf,timer,t0,phase,levels,gate,changes,onsets,cA,cB,win,lastOn,ratio;
 function show(id){["setup","play","done"].forEach(s=>$(s).hidden=s!==id)}
 let wl;async function lock(){try{wl=await navigator.wakeLock.request("screen")}catch(e){}}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&ctx)lock()});
 function cleanup(){clearInterval(timer);try{wl&&wl.release()}catch(e){}wl=null;try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx&&ctx.close()}catch(e){}stream=ctx=null}
-function cos(v,t){let d=0,n=0;for(let i=0;i<12;i++){d+=v[i]*t[i];n+=v[i]*v[i]}return n?d/Math.sqrt(n):0}
-
 async function start(){
  $("err").textContent="";
- cA=CH[A.value];cB=CH[B.value];tA=tmpl(cA);tB=tmpl(cB);
+ cA=CH[A.value];cB=CH[B.value];ratio=+$("sens").value;
  try{
   stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
   ctx=new(window.AudioContext||window.webkitAudioContext)();await ctx.resume();
  }catch(e){$("err").textContent="Microphone access is needed. Allow it in your browser settings and try again.";return}
- an=ctx.createAnalyser();an.fftSize=16384;an.smoothingTimeConstant=.2;
+ an=ctx.createAnalyser();an.fftSize=2048;an.smoothingTimeConstant=0;
  ctx.createMediaStreamSource(stream).connect(an);
- buf=new Float32Array(an.frequencyBinCount);
- const bw=ctx.sampleRate/an.fftSize;lo=Math.ceil(75/bw);hi=Math.floor(1400/bw);
- pcs=new Int8Array(hi+1).fill(-1);
- for(let i=lo;i<=hi;i++){const m=69+12*Math.log2(i*bw/440),r=Math.round(m);if(Math.abs(m-r)<.35)pcs[i]=((r%12)+12)%12}
- ["ca","cb"].forEach((id,k)=>{const c=k?cB:cA;$(id).firstElementChild.textContent=c[0];$(id).lastElementChild.textContent=c[3];$(id).classList.remove("on")});
- phase="count";energies=[];gate=.05;run={l:null,n:0};stable=null;changes=0;
+ buf=new Float32Array(an.fftSize);
+ ["ca","cb"].forEach((id,k)=>{const c=k?cB:cA;$(id).firstElementChild.textContent=c[0];$(id).lastElementChild.textContent=c[3];$(id).classList.toggle("on",!k)});
+ phase="count";levels=[];gate=.02;win=[];onsets=0;changes=0;lastOn=-1e9;
  $("n").textContent=0;$("phase").textContent="Get ready";$("big").textContent=5;$("heard").textContent="";
- show("play");lock();t0=performance.now();timer=setInterval(tick,90);
+ show("play");lock();t0=performance.now();timer=setInterval(tick,20);
 }
 
+// Counts strums: a sudden jump in volume well above the last ~160 ms and above the room-noise gate.
+// The first strum is the starting chord, so changes = strums - 1.
 function tick(){
  const t=performance.now()-t0;
- an.getFloatFrequencyData(buf);
- const ch=new Float32Array(12);let e=0;
- for(let i=lo;i<=hi;i++){const m=Math.pow(10,buf[i]/20);e+=m;if(pcs[i]>=0)ch[pcs[i]]+=m}
- $("lvl").style.width=Math.max(0,Math.min(100,Math.log10(e/.005)*40))+"%";
+ an.getFloatTimeDomainData(buf);
+ let s=0;for(let i=0;i<buf.length;i++)s+=buf[i]*buf[i];
+ const r=Math.sqrt(s/buf.length);
+ $("lvl").style.width=Math.max(0,Math.min(100,Math.log10(r/.003)*40))+"%";
  if(phase==="count"){
-  energies.push(e);
+  levels.push(r);
   if(t<5000){$("big").textContent=Math.ceil((5000-t)/1000);return}
-  const s=energies.slice().sort((x,y)=>x-y);
-  gate=Math.max(s[Math.floor(s.length*.25)]*4,.05);
+  const q=levels.slice().sort((x,y)=>x-y);
+  gate=Math.max(q[Math.floor(q.length*.25)]*4,.01);
   phase="run";$("phase").textContent="Play! Switch chords";
  }
  if(t>=65000){finish();return}
  $("big").textContent=Math.ceil((65000-t)/1000);
- let lab=null;
- if(e>gate){
-  const sa=cos(ch,tA),sb=cos(ch,tB);
-  if(Math.max(sa,sb)>.5&&Math.abs(sa-sb)>.05)lab=sa>sb?"A":"B";
- }
- if(lab===run.l)run.n++;else{run.l=lab;run.n=1}
- if(lab&&run.n>=3&&lab!==stable){
-  if(stable){changes++;$("n").textContent=changes}
-  stable=lab;
-  $("ca").classList.toggle("on",lab==="A");$("cb").classList.toggle("on",lab==="B");
-  $("heard").textContent="Heard "+(lab==="A"?cA[0]:cB[0]);
+ $("heard").textContent=t-lastOn<300?"Strum!":"";
+ win.push(r);if(win.length>8)win.shift();
+ if(r>gate&&t-lastOn>250&&win.length>=4&&r>ratio*Math.min(...win.slice(0,-1))){
+  lastOn=t;onsets++;changes=Math.max(0,onsets-1);$("n").textContent=changes;
+  $("ca").classList.toggle("on",onsets%2===0);$("cb").classList.toggle("on",onsets%2===1);
  }
 }
 
